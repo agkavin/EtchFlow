@@ -41,13 +41,23 @@ def serialize_graph(graph: Any) -> dict:
 
     # Build edge list
     edges = []
-    raw_edges = getattr(compiled, "edges", {})
-    for src, destinations in raw_edges.items():
-        if isinstance(destinations, (list, set)):
-            for dst in destinations:
-                edges.append({"from": src, "to": dst})
-        elif isinstance(destinations, str):
-            edges.append({"from": src, "to": destinations})
+    raw_edges = getattr(compiled, "edges", [])
+
+    if isinstance(raw_edges, dict):
+        for src, destinations in raw_edges.items():
+            if isinstance(destinations, (list, set)):
+                for dst in destinations:
+                    edges.append({"from": src, "to": dst})
+            elif isinstance(destinations, str):
+                edges.append({"from": src, "to": destinations})
+    elif isinstance(raw_edges, (list, set)):
+        for edge in raw_edges:
+            # Handle Edge objects (namedtuples with source/target)
+            if hasattr(edge, "source") and hasattr(edge, "target"):
+                edges.append({"from": edge.source, "to": edge.target})
+            # Handle tuples (source, target)
+            elif isinstance(edge, (list, tuple)) and len(edge) >= 2:
+                edges.append({"from": edge[0], "to": edge[1]})
 
     # Determine entry_point and finish_point
     entry_point = getattr(compiled, "entry_point", None)
