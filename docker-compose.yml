@@ -3,7 +3,7 @@ services:
   etchflow:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: deploy/server.Dockerfile
     ports:
       - "8080:8080"
     environment:

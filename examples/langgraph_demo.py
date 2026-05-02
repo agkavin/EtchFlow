@@ -26,8 +26,7 @@ from typing import TypedDict
 
 from langgraph.graph import StateGraph
 
-from etchflow_client import EtchFlowClient
-from etchflow_checkpoint_saver import EtchFlowCheckpointSaver
+from etchflow import EtchFlowClient, EtchFlowCheckpointSaver
 
 
 # ── Graph state definition ────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ from langgraph.checkpoint.base import (
     CheckpointTuple,
 )
 
-from etchflow_client import EtchFlowClient
+from etchflow.client import EtchFlowClient
 
 
 class EtchFlowCheckpointSaver(BaseCheckpointSaver):

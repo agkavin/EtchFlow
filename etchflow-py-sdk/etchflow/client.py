@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from graph_serializer import serialize_graph
+from etchflow.serializer import serialize_graph
 
 
 class EtchFlowClient:

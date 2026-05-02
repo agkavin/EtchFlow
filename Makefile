@@ -24,13 +24,13 @@ logs:
 	docker compose logs -f etchflow
 
 ## kill-test — run the full Kill Test scenario automatically
-## Requires: `make run` first, and Python deps installed in python_adapter/
+## Requires: `make run` first, and Python deps installed.
 kill-test:
 	@echo ""
 	@echo "=== EtchFlow Kill Test ==="
 	@echo ""
 	@echo ">>> Starting 8-node graph (nodes sleep 5s each)..."
-	@cd python_adapter && python example_graph.py & echo $$! > /tmp/etchflow_pid
+	@export PYTHONPATH=$$PYTHONPATH:$(PWD)/etchflow-py-sdk && python examples/langgraph_demo.py & echo $$! > /tmp/etchflow_pid
 	@echo ">>> Graph running (PID=$$(cat /tmp/etchflow_pid))"
 	@echo ">>> Waiting 18s (nodes 1-3 complete, node 4 mid-execution)..."
 	@sleep 18
@@ -46,6 +46,6 @@ kill-test:
 	@curl -sf http://localhost:8080/runs/$$(cat /tmp/etchflow_run_id)/state | python3 -m json.tool
 	@echo ""
 	@echo ">>> Resuming run from last checkpoint..."
-	@cd python_adapter && python example_graph.py --resume $$(cat /tmp/etchflow_run_id)
+	@export PYTHONPATH=$$PYTHONPATH:$(PWD)/etchflow-py-sdk && python examples/langgraph_demo.py --resume $$(cat /tmp/etchflow_run_id)
 	@echo ""
 	@echo "=== Kill Test Complete ==="

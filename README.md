@@ -10,7 +10,7 @@ EtchFlow is a **Bring-Your-Own-Compute (BYOC) Durable Execution Engine** specifi
 - **Zero-Rewrite Integration**: Plugs directly into LangGraph via `BaseCheckpointSaver`.
 - **Atomic Checkpointing**: Fully idempotent state saves using Postgres `ON CONFLICT DO NOTHING`.
 - **Crash Recovery**: Transparently resumes graphs from the exact node of failure.
-- **BYOC Architecture**: The Go engine just handles state; Python handles the execution.
+- **Professional SDK**: Clean `etchflow` package with standard Python distribution structure.
 
 ---
 
@@ -47,6 +47,17 @@ EtchFlow is a **Bring-Your-Own-Compute (BYOC) Durable Execution Engine** specifi
 
 ---
 
+## Project Structure
+
+- `cmd/server/`: Go service entry point.
+- `internal/`: Core Go logic (models, state machine, database store).
+- `etchflow-py-sdk/`: The official Python SDK source code.
+- `examples/`: Ready-to-run demo workflows.
+- `deploy/`: Docker deployment blueprints.
+- `migrations/`: Database schema definitions.
+
+---
+
 ## How to Run
 
 ### 1. Start the EtchFlow Engine
@@ -56,10 +67,10 @@ EtchFlow is packaged as a Docker Compose stack containing the Go server and Post
 make run
 ```
 
-### 2. Install Python Dependencies
+### 2. Install Python dependencies
+Ensure you have the required libraries installed in your environment:
 ```bash
-cd python_adapter
-pip install -r requirements.txt
+pip install langgraph langchain-core httpx
 ```
 
 ### 3. Run the "Kill Test" (Crash Recovery Demo)
