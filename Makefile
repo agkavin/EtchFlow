@@ -26,26 +26,4 @@ logs:
 ## kill-test — run the full Kill Test scenario automatically
 ## Requires: `make run` first, and Python deps installed.
 kill-test:
-	@echo ""
-	@echo "=== EtchFlow Kill Test ==="
-	@echo ""
-	@echo ">>> Starting 8-node graph (nodes sleep 5s each)..."
-	@export PYTHONPATH=$$PYTHONPATH:$(PWD)/etchflow-py-sdk && python examples/langgraph_demo.py & echo $$! > /tmp/etchflow_pid
-	@echo ">>> Graph running (PID=$$(cat /tmp/etchflow_pid))"
-	@echo ">>> Waiting 18s (nodes 1-3 complete, node 4 mid-execution)..."
-	@sleep 18
-	@echo ""
-	@echo ">>> Killing Python process..."
-	@kill -9 $$(cat /tmp/etchflow_pid) 2>/dev/null || true
-	@sleep 1
-	@echo ""
-	@echo ">>> Verifying EtchFlow is still alive..."
-	@curl -sf http://localhost:8080/health | python3 -m json.tool && echo "✅ EtchFlow alive"
-	@echo ""
-	@echo ">>> Last committed checkpoint:"
-	@curl -sf http://localhost:8080/runs/$$(cat /tmp/etchflow_run_id)/state | python3 -m json.tool
-	@echo ""
-	@echo ">>> Resuming run from last checkpoint..."
-	@export PYTHONPATH=$$PYTHONPATH:$(PWD)/etchflow-py-sdk && python examples/langgraph_demo.py --resume $$(cat /tmp/etchflow_run_id)
-	@echo ""
-	@echo "=== Kill Test Complete ==="
+	@./scripts/kill-test.sh

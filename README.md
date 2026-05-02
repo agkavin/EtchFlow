@@ -7,9 +7,9 @@ Building durable, long-running agentic workflows (like with LangGraph) usually r
 EtchFlow is a **Bring-Your-Own-Compute (BYOC) Durable Execution Engine** specifically designed for LangGraph. It acts as an external state machine and checkpointing backend. You write standard Python LangGraph code without workflow primitives, and EtchFlow natively plugs into LangGraph's `BaseCheckpointSaver`. If your Python process crashes, you simply restart it, and EtchFlow fast-forwards your state to the exact node where it died.
 
 ### Features (Phase MVP)
-- **Zero-Rewrite Integration**: Plugs directly into LangGraph via `BaseCheckpointSaver`.
+- **Zero-Boilerplate SDK**: Wraps LangGraph directly. Just use `etchflow.compile(builder)`.
 - **Atomic Checkpointing**: Fully idempotent state saves using Postgres `ON CONFLICT DO NOTHING`.
-- **Crash Recovery**: Transparently resumes graphs from the exact node of failure.
+- **Crash Recovery**: Transparently resumes graphs from the exact node of failure using your own string `thread_id`.
 - **Professional SDK**: Clean `etchflow` package with standard Python distribution structure.
 
 ---
@@ -17,28 +17,28 @@ EtchFlow is a **Bring-Your-Own-Compute (BYOC) Durable Execution Engine** specifi
 ## Architecture Flow
 
 ```text
-+-------------------+           1. submit_run()            +----------------------+
++-------------------+           1. app.invoke({"topic"...})    +----------------------+
 |                   | -----------------------------------> |                      |
-|  Python LangGraph |                                      |  EtchFlow Go Engine  |
+|  Python LangGraph |           (Uses standard thread_id)  |  EtchFlow Go Engine  |
 |  (App Compute)    | <----------------------------------- |  (State & Durability)|
-|                   |           2. Returns run_id          |                      |
+|                   |           2. Graph initialized       |                      |
 +-------------------+                                      +----------------------+
         |                                                              |
-        |  3. graph.invoke()                                           |
+        |  3. Fetch last state (auto-resume if crashed)                |
         v                                                              v
-+-------------------+           4. Fetch last state        +----------------------+
++-------------------+                                      +----------------------+
 | LangGraph Routing | -----------------------------------> | Postgres DB          |
 | (Skip finished)   | <----------------------------------- | (runs, checkpoints)  |
 +-------------------+                                      +----------------------+
         |                                                              |
-        |  5. Execute Node (e.g. LLM call)                             |
+        |  4. Execute Node (e.g. LLM call)                             |
         v                                                              |
-+-------------------+           6. saver.put()             +----------------------+
++-------------------+           5. saver.put()             +----------------------+
 | Node Completion   | -----------------------------------> | Atomic TX            |
 | (State Updated)   |                                      | - Save Checkpoint    |
 +-------------------+                                      | - Update Run State   |
         |                                                  +----------------------+
-        |  7. Loop until Finish Node
+        |  6. Loop until Finish Node
         v
 +-------------------+
 |  Graph Success    |
@@ -53,7 +53,7 @@ EtchFlow is a **Bring-Your-Own-Compute (BYOC) Durable Execution Engine** specifi
 - `internal/`: Core Go logic (models, state machine, database store).
 - `etchflow-py-sdk/`: The official Python SDK source code.
 - `examples/`: Ready-to-run demo workflows.
-- `deploy/`: Docker deployment blueprints.
+- `scripts/`: Utility scripts like `kill-test.sh`.
 - `migrations/`: Database schema definitions.
 
 ---
@@ -74,7 +74,7 @@ pip install langgraph langchain-core httpx
 ```
 
 ### 3. Run the "Kill Test" (Crash Recovery Demo)
-The included kill test spins up an 8-node mock LangGraph execution, deliberately force-kills the Python process midway, and then seamlessly resumes it from the exact node it died on.
+The included kill test spins up a 5-node LangGraph execution, deliberately force-kills the Python process midway, and then seamlessly resumes it from the exact node it died on.
 ```bash
 make kill-test
 ```

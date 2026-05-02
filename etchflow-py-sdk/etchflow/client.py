@@ -29,7 +29,7 @@ class EtchFlowClient:
         self.base_url = base_url.rstrip("/")
         self.http = httpx.Client(base_url=self.base_url, timeout=timeout)
 
-    def submit_run(self, graph: Any, input_data: dict) -> str:
+    def submit_run(self, graph: Any, input_data: dict, run_id: str | None = None) -> str:
         """
         Register a new LangGraph run with EtchFlow.
 
@@ -41,19 +41,25 @@ class EtchFlowClient:
             graph:      A LangGraph StateGraph (uncompiled). Topology is extracted
                         as metadata only — no execution logic is sent.
             input_data: The initial input dict for the graph.
+            run_id:     Optional user-defined thread ID. If omitted, EtchFlow 
+                        auto-generates one.
 
         Returns:
-            run_id (str): UUID of the created run.
+            run_id (str): The created run ID.
 
         Raises:
             httpx.HTTPStatusError: If EtchFlow returns a non-2xx response.
         """
         graph_definition = serialize_graph(graph)
 
-        resp = self.http.post("/runs", json={
+        payload = {
             "graph_definition": graph_definition,
             "input_data": input_data,
-        })
+        }
+        if run_id is not None:
+            payload["id"] = run_id
+
+        resp = self.http.post("/runs", json=payload)
         resp.raise_for_status()
         return resp.json()["run_id"]
 

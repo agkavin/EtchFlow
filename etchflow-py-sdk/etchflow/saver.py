@@ -74,7 +74,7 @@ class EtchFlowCheckpointSaver(BaseCheckpointSaver):
         config_with_id: RunnableConfig = {
             "configurable": {
                 "thread_id": self.run_id,
-                "checkpoint_id": last_node,
+                "checkpoint_id": checkpoint.get("id"),
                 "checkpoint_ns": "",
             }
         }
@@ -82,12 +82,11 @@ class EtchFlowCheckpointSaver(BaseCheckpointSaver):
         return CheckpointTuple(
             config=config_with_id,
             checkpoint=checkpoint,
-            metadata=CheckpointMetadata(
-                source="input",
-                step=0,
-                writes={},
-                parents={},
-            ),
+            metadata={
+                "source": "loop",
+                "step": -1,
+                "parents": {},
+            },
             parent_config=None,
             pending_writes=[],
         )
@@ -146,6 +145,7 @@ class EtchFlowCheckpointSaver(BaseCheckpointSaver):
         config: RunnableConfig,
         writes: Sequence[Tuple[str, Any]],
         task_id: str,
+        task_path: str = "",
     ) -> None:
         """
         Stores intermediate pending writes (not yet committed to a full checkpoint).
@@ -157,7 +157,7 @@ class EtchFlowCheckpointSaver(BaseCheckpointSaver):
 
     def list(
         self,
-        config: RunnableConfig,
+        config: Optional[RunnableConfig],
         *,
         filter: Optional[dict] = None,
         before: Optional[RunnableConfig] = None,
