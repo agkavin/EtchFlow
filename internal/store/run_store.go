@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/marcusferl/etchflow/internal/models"
@@ -27,8 +26,8 @@ func NewRunStore(pool *pgxpool.Pool) *RunStore {
 }
 
 // CreateRun inserts a new run into the database with PENDING status.
-// Returns the created Run with its generated UUID.
-func (s *RunStore) CreateRun(ctx context.Context, graphDef models.GraphDefinition, inputData map[string]any) (*models.Run, error) {
+// Returns the created Run with its generated UUID (or provided ID).
+func (s *RunStore) CreateRun(ctx context.Context, id string, graphDef models.GraphDefinition, inputData map[string]any) (*models.Run, error) {
 	graphDefJSON, err := json.Marshal(graphDef)
 	if err != nil {
 		return nil, fmt.Errorf("marshal graph_definition: %w", err)
@@ -43,11 +42,11 @@ func (s *RunStore) CreateRun(ctx context.Context, graphDef models.GraphDefinitio
 	var inputDataRaw []byte
 
 	err = s.pool.QueryRow(ctx, `
-		INSERT INTO runs (graph_definition, input_data)
-		VALUES ($1, $2)
+		INSERT INTO runs (id, graph_definition, input_data)
+		VALUES (COALESCE(NULLIF($1, ''), gen_random_uuid()::text), $2, $3)
 		RETURNING id, graph_definition, input_data, current_state, status,
 		          COALESCE(last_node_completed, ''), created_at, started_at, completed_at, updated_at
-	`, graphDefJSON, inputDataJSON).Scan(
+	`, id, graphDefJSON, inputDataJSON).Scan(
 		&run.ID,
 		&graphDefRaw,
 		&inputDataRaw,
@@ -74,7 +73,7 @@ func (s *RunStore) CreateRun(ctx context.Context, graphDef models.GraphDefinitio
 }
 
 // GetRun fetches a run by ID. Returns ErrNotFound if it doesn't exist.
-func (s *RunStore) GetRun(ctx context.Context, id uuid.UUID) (*models.Run, error) {
+func (s *RunStore) GetRun(ctx context.Context, id string) (*models.Run, error) {
 	var run models.Run
 	var graphDefRaw []byte
 	var inputDataRaw []byte
@@ -121,7 +120,7 @@ func (s *RunStore) GetRun(ctx context.Context, id uuid.UUID) (*models.Run, error
 
 // updateCurrentStateTx updates the run's current_state and last_node_completed within a transaction.
 // Called inside the atomic checkpoint transaction — do not call standalone.
-func (s *RunStore) updateCurrentStateTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, stateJSON []byte, lastNode string) error {
+func (s *RunStore) updateCurrentStateTx(ctx context.Context, tx pgx.Tx, id string, stateJSON []byte, lastNode string) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE runs
 		SET current_state = $1, last_node_completed = $2, updated_at = NOW()
@@ -136,7 +135,7 @@ func (s *RunStore) updateCurrentStateTx(ctx context.Context, tx pgx.Tx, id uuid.
 // setRunningTx transitions the run from PENDING → RUNNING within a transaction.
 // Uses COALESCE so started_at is only set on first transition.
 // Safe to call even if already RUNNING (WHERE status = 'PENDING' ensures idempotency).
-func (s *RunStore) setRunningTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+func (s *RunStore) setRunningTx(ctx context.Context, tx pgx.Tx, id string) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE runs
 		SET status = 'RUNNING',
@@ -152,7 +151,7 @@ func (s *RunStore) setRunningTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) er
 
 // setSuccessTx transitions the run from RUNNING → SUCCESS within a transaction.
 // Called when the finish_point node is checkpointed.
-func (s *RunStore) setSuccessTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+func (s *RunStore) setSuccessTx(ctx context.Context, tx pgx.Tx, id string) error {
 	now := time.Now()
 	_, err := tx.Exec(ctx, `
 		UPDATE runs

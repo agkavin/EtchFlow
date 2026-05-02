@@ -19,7 +19,7 @@ const (
 // Written on every state transition and checkpoint. Never updated, never deleted.
 type AgentLog struct {
 	ID        uuid.UUID      `json:"id" db:"id"`
-	RunID     uuid.UUID      `json:"run_id" db:"run_id"`
+	RunID     string         `json:"run_id" db:"run_id"`
 	NodeName  string         `json:"node_name,omitempty" db:"node_name"`
 	EventType string         `json:"event_type" db:"event_type"`
 	Message   string         `json:"message,omitempty" db:"message"`

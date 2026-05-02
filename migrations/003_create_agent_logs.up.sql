@@ -4,7 +4,7 @@
 
 CREATE TABLE IF NOT EXISTS agent_logs (
     id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    run_id      UUID        NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    run_id      TEXT        NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
 
     -- NULL for run-level events (SUBMITTED, SUCCESS, etc.)
     node_name   TEXT,

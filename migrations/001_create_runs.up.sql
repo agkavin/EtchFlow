@@ -3,7 +3,7 @@
 -- MVP-slim: no worker_id, heartbeat, or retry columns (added in Phase 1.5 via ALTER TABLE).
 
 CREATE TABLE IF NOT EXISTS runs (
-    id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    id                  TEXT        PRIMARY KEY,
 
     -- DAG topology stored as metadata (not execution logic).
     -- EtchFlow stores this for validation and display only.

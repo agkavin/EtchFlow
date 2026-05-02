@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/marcusferl/etchflow/internal/store"
 	"go.uber.org/zap"
 )
@@ -20,9 +19,9 @@ import (
 // Response 404: no checkpoint exists yet (fresh start — LangGraph starts from entry_point)
 func (h *Handlers) GetState(w http.ResponseWriter, r *http.Request) {
 	runIDStr := chi.URLParam(r, "id")
-	runID, err := uuid.Parse(runIDStr)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "Bad Request", "Invalid run ID: must be a UUID")
+	runID := runIDStr
+	if runID == "" {
+		respondError(w, http.StatusBadRequest, "Bad Request", "run ID is required")
 		return
 	}
 

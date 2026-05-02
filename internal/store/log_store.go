@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,7 +25,7 @@ func NewLogStore(pool *pgxpool.Pool) *LogStore {
 //
 // Log failures do NOT propagate as errors by design: a logging failure should
 // never block a checkpoint write. Callers are responsible for handling this.
-func (s *LogStore) Append(ctx context.Context, runID uuid.UUID, nodeName, eventType, message string, metadata map[string]any) error {
+func (s *LogStore) Append(ctx context.Context, runID string, nodeName, eventType, message string, metadata map[string]any) error {
 	var metadataJSON []byte
 	var err error
 

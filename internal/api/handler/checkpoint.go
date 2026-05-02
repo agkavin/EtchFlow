@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/marcusferl/etchflow/internal/models"
 	"github.com/marcusferl/etchflow/internal/store"
 	"go.uber.org/zap"
@@ -31,9 +30,9 @@ type saveCheckpointRequest struct {
 // Response 200 (done):     { "continue": false, "halt_reason": null }
 func (h *Handlers) SaveCheckpoint(w http.ResponseWriter, r *http.Request) {
 	runIDStr := chi.URLParam(r, "id")
-	runID, err := uuid.Parse(runIDStr)
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "Bad Request", "Invalid run ID: must be a UUID")
+	runID := runIDStr
+	if runID == "" {
+		respondError(w, http.StatusBadRequest, "Bad Request", "run ID is required")
 		return
 	}
 

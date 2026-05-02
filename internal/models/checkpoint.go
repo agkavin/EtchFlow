@@ -11,7 +11,7 @@ import (
 // The UNIQUE(run_id, node_name) constraint ensures idempotency.
 type Checkpoint struct {
 	ID        uuid.UUID      `json:"id" db:"id"`
-	RunID     uuid.UUID      `json:"run_id" db:"run_id"`
+	RunID     string         `json:"run_id" db:"run_id"`
 	NodeName  string         `json:"node_name" db:"node_name"`
 	StateJSON map[string]any `json:"state" db:"state_json"`
 	CreatedAt time.Time      `json:"created_at" db:"created_at"`

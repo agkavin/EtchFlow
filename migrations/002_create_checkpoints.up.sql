@@ -5,7 +5,7 @@
 
 CREATE TABLE IF NOT EXISTS checkpoints (
     id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    run_id      UUID        NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    run_id      TEXT        NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
     node_name   TEXT        NOT NULL,
 
     -- Full LangGraph state after this node completed.

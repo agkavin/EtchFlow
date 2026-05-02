@@ -10,6 +10,7 @@ import (
 
 // createRunRequest is the expected body for POST /runs.
 type createRunRequest struct {
+	ID              string                 `json:"id,omitempty"`
 	GraphDefinition models.GraphDefinition `json:"graph_definition"`
 	InputData       map[string]any         `json:"input_data"`
 }
@@ -47,7 +48,7 @@ func (h *Handlers) CreateRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := h.store.Runs.CreateRun(r.Context(), req.GraphDefinition, req.InputData)
+	run, err := h.store.Runs.CreateRun(r.Context(), req.ID, req.GraphDefinition, req.InputData)
 	if err != nil {
 		h.logger.Error("failed to create run", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "Internal Server Error", "Failed to create run")
@@ -56,10 +57,10 @@ func (h *Handlers) CreateRun(w http.ResponseWriter, r *http.Request) {
 
 	// Append SUBMITTED event to audit log. Log failure does not block the response.
 	if logErr := h.store.Logs.Append(r.Context(), run.ID, "", models.EventSubmitted, "run created by python client", nil); logErr != nil {
-		h.logger.Warn("failed to append SUBMITTED log", zap.Error(logErr), zap.String("run_id", run.ID.String()))
+		h.logger.Warn("failed to append SUBMITTED log", zap.Error(logErr), zap.String("run_id", run.ID))
 	}
 
-	h.logger.Info("run created", zap.String("run_id", run.ID.String()), zap.String("status", run.Status))
+	h.logger.Info("run created", zap.String("run_id", run.ID), zap.String("status", run.Status))
 
 	respondJSON(w, http.StatusCreated, map[string]any{
 		"run_id":     run.ID,

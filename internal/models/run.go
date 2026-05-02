@@ -2,8 +2,6 @@ package models
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // Run status constants — MVP subset only.
@@ -34,7 +32,7 @@ type GraphEdge struct {
 // Run represents a single workflow execution lifecycle.
 // One row per workflow execution in the `runs` table.
 type Run struct {
-	ID                 uuid.UUID       `json:"run_id" db:"id"`
+	ID                 string          `json:"run_id" db:"id"`
 	GraphDefinition    GraphDefinition `json:"graph_definition" db:"graph_definition"`
 	InputData          map[string]any  `json:"input_data" db:"input_data"`
 	CurrentState       map[string]any  `json:"current_state,omitempty" db:"current_state"`

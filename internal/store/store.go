@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/marcusferl/etchflow/internal/models"
 )
@@ -112,11 +111,3 @@ func (s *Store) Ping(ctx context.Context) error {
 	return s.pool.Ping(ctx)
 }
 
-// GetRunID is a convenience helper for handlers.
-func (s *Store) GetRunID(idStr string) (uuid.UUID, error) {
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("invalid run ID: %w", err)
-	}
-	return id, nil
-}
