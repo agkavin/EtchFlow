@@ -1,75 +1,69 @@
 # EtchFlow
 
-EtchFlow is a Postgres-backed durable execution engine for LangGraph AI workflows. It ensures that your complex, long-running agentic workflows can recover from crashes and resume exactly where they stopped, with zero re-execution of completed nodes.
+### The Problem
+Building durable, long-running agentic workflows (like with LangGraph) usually requires buying into an entire ecosystem like Temporal. This forces you to completely rewrite your Python logic into complex workflow primitives, activities, and signals. While LangGraph provides in-memory state tracking natively, deploying it reliably to production where pods can crash, timeout, or be preempted means you lose state midway and have to start expensive LLM generations from scratch.
 
-## 🚀 Quick Start
+### The Solution
+EtchFlow is a **Bring-Your-Own-Compute (BYOC) Durable Execution Engine** specifically designed for LangGraph. It acts as an external state machine and checkpointing backend. You write standard Python LangGraph code without workflow primitives, and EtchFlow natively plugs into LangGraph's `BaseCheckpointSaver`. If your Python process crashes, you simply restart it, and EtchFlow fast-forwards your state to the exact node where it died.
 
-### 1. Requirements
-- Docker & Docker Compose
-- Python 3.11+
-- Go 1.22+ (only for local development outside Docker)
+### Features (Phase MVP)
+- **Zero-Rewrite Integration**: Plugs directly into LangGraph via `BaseCheckpointSaver`.
+- **Atomic Checkpointing**: Fully idempotent state saves using Postgres `ON CONFLICT DO NOTHING`.
+- **Crash Recovery**: Transparently resumes graphs from the exact node of failure.
+- **BYOC Architecture**: The Go engine just handles state; Python handles the execution.
 
-### 2. Start EtchFlow
+---
+
+## Architecture Flow
+
+```text
++-------------------+           1. submit_run()            +----------------------+
+|                   | -----------------------------------> |                      |
+|  Python LangGraph |                                      |  EtchFlow Go Engine  |
+|  (App Compute)    | <----------------------------------- |  (State & Durability)|
+|                   |           2. Returns run_id          |                      |
++-------------------+                                      +----------------------+
+        |                                                              |
+        |  3. graph.invoke()                                           |
+        v                                                              v
++-------------------+           4. Fetch last state        +----------------------+
+| LangGraph Routing | -----------------------------------> | Postgres DB          |
+| (Skip finished)   | <----------------------------------- | (runs, checkpoints)  |
++-------------------+                                      +----------------------+
+        |                                                              |
+        |  5. Execute Node (e.g. LLM call)                             |
+        v                                                              |
++-------------------+           6. saver.put()             +----------------------+
+| Node Completion   | -----------------------------------> | Atomic TX            |
+| (State Updated)   |                                      | - Save Checkpoint    |
++-------------------+                                      | - Update Run State   |
+        |                                                  +----------------------+
+        |  7. Loop until Finish Node
+        v
++-------------------+
+|  Graph Success    |
++-------------------+
+```
+
+---
+
+## How to Run
+
+### 1. Start the EtchFlow Engine
+EtchFlow is packaged as a Docker Compose stack containing the Go server and PostgreSQL.
 ```bash
+# Start the database and backend API
 make run
 ```
-This starts the EtchFlow Go service and a PostgreSQL 16 database. Migrations are automatically applied on startup.
 
-### 3. Setup Python Environment
+### 2. Install Python Dependencies
 ```bash
 cd python_adapter
 pip install -r requirements.txt
 ```
 
-### 4. Run the Demo
-```bash
-python python_adapter/example_graph.py
-```
-
-## 🧪 The Kill Test (Crash Recovery Demo)
-
-The "Kill Test" is the ultimate proof of EtchFlow's durability. It simulates a process crash mid-execution and demonstrates how the workflow resumes.
-
-### Automated Kill Test
+### 3. Run the "Kill Test" (Crash Recovery Demo)
+The included kill test spins up an 8-node mock LangGraph execution, deliberately force-kills the Python process midway, and then seamlessly resumes it from the exact node it died on.
 ```bash
 make kill-test
 ```
-
-### Manual Kill Test Walkthrough
-
-1. **Start a run:**
-   ```bash
-   python python_adapter/example_graph.py
-   ```
-   The 8-node demo graph will start. Each node takes 5 seconds.
-
-2. **Kill the process:**
-   Wait for node 2 or 3 to finish, then press `Ctrl+C` or run `kill -9 <pid>` to terminate the Python process.
-
-3. **Verify EtchFlow state:**
-   ```bash
-   curl http://localhost:8080/runs/<run_id>/state
-   ```
-   You will see the last successfully checkpointed node and the full graph state.
-
-4. **Resume the run:**
-   ```bash
-   python python_adapter/example_graph.py --resume <run_id>
-   ```
-   LangGraph will load the state from EtchFlow, skip the already completed nodes, and resume execution from the exact point of the crash.
-
-## 📁 Project Structure
-
-- `cmd/server/`: Go service entry point.
-- `internal/`: Core logic (API handlers, database stores, state machine).
-- `migrations/`: SQL migration files for PostgreSQL.
-- `python_adapter/`: The EtchFlow Python SDK and LangGraph `BaseCheckpointSaver` implementation.
-- `Dockerfile` & `docker-compose.yml`: Container orchestration.
-
-## 🛠️ Makefile Commands
-
-- `make run`: Build and start services.
-- `make stop`: Stop services.
-- `make clean`: Stop services and wipe database volumes.
-- `make logs`: Tail EtchFlow service logs.
-- `make kill-test`: Run the automated crash recovery test.

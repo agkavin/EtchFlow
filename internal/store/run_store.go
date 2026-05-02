@@ -46,7 +46,7 @@ func (s *RunStore) CreateRun(ctx context.Context, graphDef models.GraphDefinitio
 		INSERT INTO runs (graph_definition, input_data)
 		VALUES ($1, $2)
 		RETURNING id, graph_definition, input_data, current_state, status,
-		          last_node_completed, created_at, started_at, completed_at, updated_at
+		          COALESCE(last_node_completed, ''), created_at, started_at, completed_at, updated_at
 	`, graphDefJSON, inputDataJSON).Scan(
 		&run.ID,
 		&graphDefRaw,
@@ -82,7 +82,7 @@ func (s *RunStore) GetRun(ctx context.Context, id uuid.UUID) (*models.Run, error
 
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, graph_definition, input_data, current_state, status,
-		       last_node_completed, created_at, started_at, completed_at, updated_at
+		       COALESCE(last_node_completed, ''), created_at, started_at, completed_at, updated_at
 		FROM runs
 		WHERE id = $1
 	`, id).Scan(

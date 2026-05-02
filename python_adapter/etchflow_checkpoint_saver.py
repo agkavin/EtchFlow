@@ -109,8 +109,16 @@ class EtchFlowCheckpointSaver(BaseCheckpointSaver):
         Returns the updated RunnableConfig for LangGraph's internal tracking.
         """
         # Extract node name from metadata
-        # LangGraph sets metadata["source"] to the node name for node-level checkpoints
+        # In LangGraph 0.2+, metadata["source"] is usually just "loop".
+        # The actual node name is typically the key in metadata["writes"].
         node_name = metadata.get("source", "unknown")
+        writes = metadata.get("writes", {})
+        if isinstance(writes, dict) and writes:
+            # Get the first key from writes (e.g., "extract", "publish")
+            node_name = list(writes.keys())[0]
+        elif "step" in metadata:
+            # Fallback to step number if no writes
+            node_name = f"step_{metadata['step']}"
 
         # Send to EtchFlow
         response = self.client.save_checkpoint(
