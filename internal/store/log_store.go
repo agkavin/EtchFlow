@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -50,4 +51,49 @@ func (s *LogStore) Append(ctx context.Context, runID string, nodeName, eventType
 	}
 
 	return nil
+}
+
+// GetLogsForRun fetches all logs for a run, ordered by creation time.
+func (s *LogStore) GetLogsForRun(ctx context.Context, runID string) ([]map[string]any, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, node_name, event_type, message, metadata, created_at
+		FROM agent_logs
+		WHERE run_id = $1
+		ORDER BY created_at ASC
+	`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("get logs: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []map[string]any
+	for rows.Next() {
+		var id string
+		var nodeName, eventType, message *string
+		var metadata []byte
+		var createdAt time.Time
+
+		if err := rows.Scan(&id, &nodeName, &eventType, &message, &metadata, &createdAt); err != nil {
+			return nil, fmt.Errorf("scan log: %w", err)
+		}
+
+		var metadataMap map[string]any
+		if metadata != nil {
+			if err := json.Unmarshal(metadata, &metadataMap); err != nil {
+				return nil, fmt.Errorf("unmarshal metadata: %w", err)
+			}
+		}
+
+		log := map[string]any{
+			"id":          id,
+			"node_name":   nodeName,
+			"event_type":  eventType,
+			"message":     message,
+			"metadata":    metadataMap,
+			"created_at":  createdAt,
+		}
+		logs = append(logs, log)
+	}
+
+	return logs, nil
 }

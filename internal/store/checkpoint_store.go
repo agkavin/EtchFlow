@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -73,4 +74,42 @@ func (s *CheckpointStore) GetLastCheckpoint(ctx context.Context, runID string) (
 	}
 
 	return state, nodeName, nil
+}
+
+// GetCheckpointsForRun fetches all checkpoints for a run, ordered by creation time.
+func (s *CheckpointStore) GetCheckpointsForRun(ctx context.Context, runID string) ([]map[string]any, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT node_name, state_json, created_at
+		FROM checkpoints
+		WHERE run_id = $1
+		ORDER BY created_at ASC
+	`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("get checkpoints: %w", err)
+	}
+	defer rows.Close()
+
+	var checkpoints []map[string]any
+	for rows.Next() {
+		var nodeName string
+		var stateJSON []byte
+		var createdAt time.Time
+
+		if err := rows.Scan(&nodeName, &stateJSON, &createdAt); err != nil {
+			return nil, fmt.Errorf("scan checkpoint: %w", err)
+		}
+
+		var state map[string]any
+		if err := json.Unmarshal(stateJSON, &state); err != nil {
+			return nil, fmt.Errorf("unmarshal checkpoint state: %w", err)
+		}
+
+		checkpoints = append(checkpoints, map[string]any{
+			"node_name":   nodeName,
+			"state":       state,
+			"created_at":  createdAt,
+		})
+	}
+
+	return checkpoints, nil
 }

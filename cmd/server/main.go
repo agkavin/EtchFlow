@@ -15,6 +15,7 @@ import (
 	"github.com/marcusferl/etchflow/internal/api/handler"
 	"github.com/marcusferl/etchflow/internal/config"
 	"github.com/marcusferl/etchflow/internal/store"
+	"github.com/marcusferl/etchflow/internal/worker"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -67,6 +68,15 @@ func main() {
 	// ── 5. Initialise handlers and router ─────────────────────────────────
 	h := handler.New(s, logger)
 	router := api.NewRouter(h, logger)
+
+	// ── 5.5 Start background workers ──────────────────────────────────────
+	reaper := worker.NewReaper(s, logger, 10*time.Second, 60*time.Second)
+	reaper.Start(ctx)
+	defer reaper.Stop()
+
+	retryScanner := worker.NewRetryScanner(s, logger, 5*time.Second)
+	retryScanner.Start(ctx)
+	defer retryScanner.Stop()
 
 	// ── 6. Start HTTP server ──────────────────────────────────────────────
 	srv := &http.Server{

@@ -13,6 +13,12 @@ const (
 	EventNodeCompleted = "NODE_COMPLETED"
 	EventSuccess       = "SUCCESS"
 	EventFailed        = "FAILED"
+	EventClaimed       = "CLAIMED"
+	EventReaped        = "REAPED"
+	EventRetrying      = "RETRYING"
+	EventDead          = "DEAD"
+	EventCancelled     = "CANCELLED"
+	EventTimeout       = "TIMEOUT"
 )
 
 // AgentLog is an append-only audit record.

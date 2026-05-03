@@ -32,12 +32,18 @@ func New(pool *pgxpool.Pool) *Store {
 // CheckpointResult is the result of an AtomicCheckpoint call.
 type CheckpointResult struct {
 	// Continue tells Python whether to keep executing nodes.
-	// false only when the run has reached its finish_point (SUCCESS).
+	// false when the run has reached the __end__ node (SUCCESS).
 	Continue   bool
 	// HaltReason is set when Continue=false and explains why.
 	HaltReason string
 	// WasNew is true if the checkpoint was freshly inserted (not a duplicate).
 	WasNew     bool
+}
+
+// isTerminalNode checks if the node name indicates LangGraph has completed.
+// LangGraph sends "__end__" when the graph naturally completes.
+func isTerminalNode(nodeName string) bool {
+	return nodeName == "__end__" || nodeName == "__root__"
 }
 
 // AtomicCheckpoint is the core operation of EtchFlow.
@@ -46,7 +52,7 @@ type CheckpointResult struct {
 //  1. Inserts the checkpoint (ON CONFLICT DO NOTHING — idempotent)
 //  2. Updates runs.current_state and last_node_completed
 //  3. If the run is still PENDING, auto-transitions it to RUNNING
-//  4. If this is the finish_point node, transitions RUNNING → SUCCESS
+//  4. If the node is "__end__" (LangGraph's terminal node), auto-transition to SUCCESS
 //
 // Both the checkpoint insert and the run state update commit together
 // or both roll back. This is the durability guarantee.
@@ -55,8 +61,6 @@ func (s *Store) AtomicCheckpoint(ctx context.Context, run *models.Run, nodeName 
 	if err != nil {
 		return nil, fmt.Errorf("marshal state: %w", err)
 	}
-
-	isFinishNode := nodeName == run.GraphDefinition.FinishPoint
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -83,10 +87,11 @@ func (s *Store) AtomicCheckpoint(ctx context.Context, run *models.Run, nodeName 
 			}
 		}
 
-		// Step 4: Transition RUNNING → SUCCESS if this is the finish node
-		if isFinishNode {
+		// Step 4: Auto-transition RUNNING → SUCCESS on __end__ node
+		// This is how LangGraph signals natural completion
+		if isTerminalNode(nodeName) && run.Status == models.StatusRunning {
 			if err := s.Runs.setSuccessTx(ctx, tx, run.ID); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("auto-success transition: %w", err)
 			}
 		}
 	}
@@ -95,16 +100,16 @@ func (s *Store) AtomicCheckpoint(ctx context.Context, run *models.Run, nodeName 
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	result := &CheckpointResult{
-		Continue: !isFinishNode,
-		WasNew:   created,
-	}
-	if isFinishNode {
-		result.HaltReason = ""
-	}
+	// Determine if we should continue or halt
+	isComplete := isTerminalNode(nodeName)
 
-	return result, nil
+	return &CheckpointResult{
+		Continue:   !isComplete,
+		WasNew:     created,
+		HaltReason: "",
+	}, nil
 }
+
 
 // Ping checks that the database is reachable.
 func (s *Store) Ping(ctx context.Context) error {
