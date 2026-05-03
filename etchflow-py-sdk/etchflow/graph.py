@@ -28,7 +28,7 @@ class EtchFlowGraph:
             raise ValueError("A `thread_id` is required in config to use EtchFlow (standard LangGraph behavior).")
             
         run_id = str(thread_id)
-            
+        
         # 1. Handle Run Initialization
         state = self.client.get_state(run_id)
         if state is None:
@@ -43,7 +43,24 @@ class EtchFlowGraph:
         # 2. Transparently compile and execute
         saver = EtchFlowCheckpointSaver(self.client, run_id)
         graph = self.builder.compile(checkpointer=saver)
-        return graph.invoke(inputs, config, **kwargs)
+        
+        # 3. Execute and auto-complete on success
+        try:
+            result = graph.invoke(inputs, config, **kwargs)
+            # Auto-complete: signal success to Go after invoke returns naturally
+            # This ensures status transitions to SUCCESS in the database
+            try:
+                self.client.complete_run(run_id)
+            except Exception:
+                pass  # Ignore if already completed
+            return result
+        except Exception as e:
+            # On error, signal failure
+            try:
+                self.client.fail_run(run_id, str(e), fatal=True)
+            except Exception:
+                pass
+            raise
 
 
 class EtchFlow:
