@@ -21,9 +21,23 @@ func NewRouter(h *handler.Handlers, logger *zap.Logger) chi.Router {
 
 	// Routes
 	r.Get("/health", h.Health)
+	r.Get("/ready", h.Ready)
+
+	// Run routes
 	r.Post("/runs", h.CreateRun)
+	r.Get("/runs/{id}", h.GetRun)
+	r.Get("/runs/{id}/logs", h.GetLogs)
 	r.Put("/runs/{id}/checkpoint", h.SaveCheckpoint)
+	r.Get("/runs/{id}/checkpoints", h.GetCheckpoints)
 	r.Get("/runs/{id}/state", h.GetState)
+	r.Post("/runs/{id}/fail", h.FailRun)
+	r.Post("/runs/{id}/complete", h.CompleteRun)
+	r.Post("/runs/{id}/cancel", h.CancelRun)
+	r.Put("/runs/{id}/heartbeat", h.UpdateHeartbeat)
+
+	
+	// Claim endpoint for the Pull-model Workers
+	r.Post("/runs/claim", h.ClaimNextRun)
 
 	return r
 }
