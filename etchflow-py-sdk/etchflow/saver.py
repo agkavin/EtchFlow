@@ -107,29 +107,42 @@ class EtchFlowCheckpointSaver(BaseCheckpointSaver):
 
         Returns the updated RunnableConfig for LangGraph's internal tracking.
         """
-        # Extract node name from metadata
-        # In LangGraph 0.2+, metadata["source"] is usually just "loop".
-        # The actual node name is typically the key in metadata["writes"].
-        node_name = metadata.get("source", "unknown")
-        writes = metadata.get("writes", {})
-        if isinstance(writes, dict) and writes:
-            # Get the first key from writes (e.g., "extract", "publish")
-            node_name = list(writes.keys())[0]
-        elif "step" in metadata:
-            # Fallback to step number if no writes
-            node_name = f"step_{metadata['step']}"
+        # 1. Determine Node Name
+        # We try to get the actual node name for traceability and auto-success detection.
+        node_name = metadata.get("node")
+        
+        # LangGraph 0.2 often reports 'loop' for nodes in a loop.
+        # The actual node name is usually the key in 'writes'.
+        if not node_name or node_name == "loop":
+            writes = metadata.get("writes", {})
+            if isinstance(writes, dict) and writes:
+                node_name = list(writes.keys())[0]
+        
+        # Fallback to step if still missing or generic
+        if not node_name or node_name == "loop":
+            node_name = f"step_{metadata.get('step', 'unknown')}"
 
-        # Send to EtchFlow
+        # 2. Terminal State Detection
+        # LangGraph adds "__end__" to the checkpoint state when the graph completes.
+        # We also check metadata for 'END' signals.
+        is_end = "__end__" in checkpoint or node_name == "__end__"
+        if is_end:
+            node_name = "__end__"
+
+        # 3. Send to EtchFlow
         response = self.client.save_checkpoint(
             run_id=self.run_id,
             node_name=node_name,
             state=checkpoint,
         )
 
-        # If EtchFlow says halt (run finished or cancelled), stop Python execution
+
+        # If EtchFlow says halt (run finished or cancelled), we just log it.
+        # LangGraph will finish naturally when it hits the END node.
         if not response.get("continue", True):
             halt = response.get("halt_reason") or "run completed"
-            raise StopIteration(f"EtchFlow: {halt}")
+            # logger.info(f"EtchFlow signalled halt: {halt}")
+
 
         # Return updated config for LangGraph's internal use
         return {
@@ -164,9 +177,30 @@ class EtchFlowCheckpointSaver(BaseCheckpointSaver):
         limit: Optional[int] = None,
     ) -> Iterator[CheckpointTuple]:
         """
-        Lists checkpoint history for a run.
-        Stub for MVP — yields nothing.
-
-        Phase 1.5 full implementation: GET /runs/{id}/checkpoints.
+        Lists checkpoint history for a run by fetching from EtchFlow API.
         """
-        return iter([])
+        checkpoints = self.client.get_checkpoints(self.run_id)
+        
+        for cp in checkpoints:
+            checkpoint = cp.get("state", {})
+
+            node_name = cp.get("node_name", "")
+            
+            config_with_id = {
+                "configurable": {
+                    "thread_id": self.run_id,
+                    "checkpoint_id": node_name,
+                    "checkpoint_ns": "",
+                }
+            }
+            
+            yield CheckpointTuple(
+                config=config_with_id,
+                checkpoint=checkpoint,
+                metadata={
+                    "source": "etchflow",
+                    "node": node_name,
+                },
+                parent_config=None,
+                pending_writes=[],
+            )
