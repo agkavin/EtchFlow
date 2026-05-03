@@ -1,29 +1,46 @@
-.PHONY: run stop clean build kill-test logs
+.PHONY: run stop clean build test test-resume test-kill worker submit logs ps
 
-## run — build and start EtchFlow + Postgres in Docker (detached)
+## run — start EtchFlow + Postgres
 run:
 	docker compose up --build -d
-	@echo "EtchFlow running at http://localhost:8080"
-	@echo "Check logs: make logs"
+	@echo "EtchFlow: http://localhost:8080"
 
-## stop — stop containers (preserves Postgres data volume)
+## stop — stop containers
 stop:
 	docker compose down
 
-## clean — stop containers AND wipe Postgres data volume (re-runs migrations on next `make run`)
+## clean — stop and wipe data
 clean:
 	docker compose down -v
-	@echo "Postgres data volume wiped. Migrations will re-run on next 'make run'."
 
-## build — compile Go binary locally (requires Go 1.22+)
+## build — compile Go
 build:
 	go build -o ./bin/etchflow ./cmd/server
 
-## logs — tail EtchFlow service logs
+## test — run demo (fresh execution)
+test:
+	@python examples/demo.py
+
+## test-resume — resume from last run
+test-resume:
+	@python examples/demo.py --resume
+
+## test-kill — run kill test (crash recovery)
+test-kill:
+	@chmod +x scripts/kill-test.sh && ./scripts/kill-test.sh
+
+## worker — start worker (batch processing)
+worker:
+	@python examples/worker_demo.py
+
+## submit — submit jobs to queue
+submit:
+	@python examples/submit_job.py --count 3
+
+## logs — tail EtchFlow logs
 logs:
 	docker compose logs -f etchflow
 
-## kill-test — run the full Kill Test scenario automatically
-## Requires: `make run` first, and Python deps installed.
-kill-test:
-	@./scripts/kill-test.sh
+## ps — show containers
+ps:
+	docker compose ps
