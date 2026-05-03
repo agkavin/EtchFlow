@@ -4,13 +4,16 @@ import (
 	"time"
 )
 
-// Run status constants — MVP subset only.
-// Phase 1.5 will add: RETRYING, DEAD, CANCELLED, TIMEOUT
+// Run status constants
 const (
-	StatusPending = "PENDING"
-	StatusRunning = "RUNNING"
-	StatusSuccess = "SUCCESS"
-	StatusFailed  = "FAILED"
+	StatusPending   = "PENDING"
+	StatusRunning   = "RUNNING"
+	StatusSuccess   = "SUCCESS"
+	StatusFailed    = "FAILED"
+	StatusRetrying  = "RETRYING"
+	StatusDead      = "DEAD"
+	StatusCancelled = "CANCELLED"
+	StatusTimeout   = "TIMEOUT"
 )
 
 // GraphDefinition holds the DAG topology submitted by Python.
@@ -42,4 +45,14 @@ type Run struct {
 	StartedAt          *time.Time      `json:"started_at,omitempty" db:"started_at"`
 	CompletedAt        *time.Time      `json:"completed_at,omitempty" db:"completed_at"`
 	UpdatedAt          time.Time       `json:"updated_at" db:"updated_at"`
+
+	// Orchestration fields (Phase 1.5)
+	WorkerID        *string    `json:"worker_id,omitempty" db:"worker_id"`
+	LastHeartbeatAt *time.Time `json:"last_heartbeat_at,omitempty" db:"last_heartbeat_at"`
+	AttemptCount    int        `json:"attempt_count" db:"attempt_count"`
+	MaxRetries      int        `json:"max_retries" db:"max_retries"`
+	BaseDelayMs     int        `json:"base_delay_ms" db:"base_delay_ms"`
+	MaxDelayMs      int        `json:"max_delay_ms" db:"max_delay_ms"`
+	NextRetryAt     *time.Time `json:"next_retry_at,omitempty" db:"next_retry_at"`
+	LastError       *string    `json:"last_error,omitempty" db:"last_error"`
 }
